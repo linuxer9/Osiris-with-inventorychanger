@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "SDK/Platform.h"
+#include "SDK/SteamAPI.h"
 
 class ClientMode;
 class Entity;
@@ -31,7 +32,9 @@ struct GlowObjectManager;
 struct PanoramaEventRegistration;
 struct Trace;
 struct Vector;
-
+class MemAlloc;
+class ISteamClient;
+class ISteamUser;
 class Memory {
 public:
     Memory() noexcept;
@@ -94,7 +97,10 @@ public:
     uintptr_t money;
     uintptr_t demoFileEndReached;
     Entity** gameRules;
-
+    MemAlloc* memalloc;
+    ISteamGameCoordinator* SteamGameCoordinator;
+    ISteamUser* SteamUser;
+    ISteamClient* SteamClient;
     short makePanoramaSymbol(const char* name) const noexcept
     {
         short symbol;

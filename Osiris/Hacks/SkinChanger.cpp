@@ -5,7 +5,6 @@
 #include <unordered_set>
 
 #define STBI_ONLY_PNG
-#define STBI_NO_FAILURE_STRINGS
 #define STBI_NO_STDIO
 #define STB_IMAGE_IMPLEMENTATION
 #include "../stb_image.h"
@@ -77,7 +76,7 @@ item_setting* get_by_definition_index(WeaponId weaponId)
     return it == config->skinChanger.end() ? nullptr : &*it;
 }
 
-static std::vector<SkinChanger::PaintKit> skinKits{ { 0, "-" } };
+static std::vector<SkinChanger::PaintKit> skinKits{ { 0, "-" , 0} };
 static std::vector<SkinChanger::PaintKit> gloveKits;
 
 static void initializeKits() noexcept
@@ -106,7 +105,7 @@ static void initializeKits() noexcept
     }
 
     std::sort(kitsWeapons.begin(), kitsWeapons.end(), [](const auto& a, const auto& b) { return a.paintKit < b.paintKit; });
- 
+
     skinKits.reserve(itemSchema->paintKits.lastAlloc);
     gloveKits.reserve(itemSchema->paintKits.lastAlloc);
     for (const auto& node : itemSchema->paintKits) {
@@ -118,28 +117,30 @@ static void initializeKits() noexcept
         if (paintKit->id >= 10000) {
             std::wstring name;
             std::string iconPath;
-
+            WeaponId itemId;
             if (const auto it = std::lower_bound(kitsWeapons.begin(), kitsWeapons.end(), paintKit->id, [](const auto& p, auto id) { return p.paintKit < id; }); it != kitsWeapons.end() && it->paintKit == paintKit->id) {
                 if (const auto itemDef = itemSchema->getItemDefinitionInterface(it->weaponId)) {
                     name = interfaces->localize->findSafe(itemDef->getItemBaseName());
                     name += L" | ";
                 }
                 iconPath = it->iconPath;
+                itemId = it->weaponId;
             }
 
             name += interfaces->localize->findSafe(paintKit->itemName.data() + 1);
-            gloveKits.emplace_back(paintKit->id, std::move(name), std::move(iconPath), paintKit->rarity);
-        } else {
+            skinKits.emplace_back(paintKit->id, std::move(name), std::move(iconPath), paintKit->rarity, itemId);
+        }
+        else {
             for (auto it = std::lower_bound(kitsWeapons.begin(), kitsWeapons.end(), paintKit->id, [](const auto& p, auto id) { return p.paintKit < id; }); it != kitsWeapons.end() && it->paintKit == paintKit->id; ++it) {
 
                 const auto itemDef = itemSchema->getItemDefinitionInterface(it->weaponId);
                 if (!itemDef)
                     continue;
-
+                WeaponId itemId = it->weaponId;
                 std::wstring name = interfaces->localize->findSafe(itemDef->getItemBaseName());
                 name += L" | ";
                 name += interfaces->localize->findSafe(paintKit->itemName.data() + 1);
-                skinKits.emplace_back(paintKit->id, std::move(name), it->iconPath, std::clamp(itemDef->getRarity() + paintKit->rarity - 1, 0, (paintKit->rarity == 7) ? 7 : 6));
+                skinKits.emplace_back(paintKit->id, std::move(name), it->iconPath, std::clamp(itemDef->getRarity() + paintKit->rarity - 1, 0, (paintKit->rarity == 7) ? 7 : 6), itemId);
             }
         }
     }
@@ -375,6 +376,7 @@ void SkinChanger::run(FrameStage stage) noexcept
 
 void SkinChanger::scheduleHudUpdate() noexcept
 {
+    interfaces->engine->clientCmdUnrestricted("econ_clear_inventory_images");
     interfaces->cvar->findVar("cl_fullupdate")->changeCallback();
     hudUpdateRequired = true;
 }
@@ -550,13 +552,15 @@ ImTextureID SkinChanger::getItemIconTexture(const std::string& iconpath) noexcep
                 if (const auto data = stbi_load_from_memory((const stbi_uc*)buffer.get(), size, &width, &height, nullptr, STBI_rgb_alpha)) {
                     iconTextures[iconpath].init(width, height, data);
                     stbi_image_free(data);
-                } else {
+                }
+                else {
                     assert(false);
                 }
             }
         }
         interfaces->baseFileSystem->close(handle);
-    } else {
+    }
+    else {
         assert(false);
     }
 
@@ -578,7 +582,7 @@ SkinChanger::PaintKit::PaintKit(int id, std::string&& name, int rarity) noexcept
     nameUpperCase = Helpers::toUpper(Helpers::toWideString(this->name));
 }
 
-SkinChanger::PaintKit::PaintKit(int id, std::wstring&& name, std::string&& iconPath, int rarity) noexcept : id{ id }, nameUpperCase{ std::move(name) }, iconPath{ std::move(iconPath) }, rarity{ rarity }
+SkinChanger::PaintKit::PaintKit(int id, std::wstring&& name, std::string&& iconPath, int rarity, WeaponId itemId) noexcept : id{ id }, nameUpperCase{ std::move(name) }, iconPath{ std::move(iconPath) }, rarity{ rarity }, itemId{ itemId }
 {
     this->name = interfaces->localize->convertUnicodeToAnsi(nameUpperCase.c_str());
     nameUpperCase = Helpers::toUpper(nameUpperCase);
@@ -589,6 +593,8 @@ SkinChanger::PaintKit::PaintKit(int id, std::wstring&& name, int rarity) noexcep
     this->name = interfaces->localize->convertUnicodeToAnsi(nameUpperCase.c_str());
     nameUpperCase = Helpers::toUpper(nameUpperCase);
 }
+
+
 
 static int random(int min, int max) noexcept
 {

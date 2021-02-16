@@ -22,7 +22,7 @@ namespace SkinChanger
     struct PaintKit {
         PaintKit(int id, const std::string& name, int rarity = 0) noexcept;
         PaintKit(int id, std::string&& name, int rarity = 0) noexcept;
-        PaintKit(int id, std::wstring&& name, std::string&& iconPath, int rarity = 0) noexcept;
+        PaintKit(int id, std::wstring&& name, std::string&& iconPath, int rarity = 0, WeaponId itemId = WeaponId::none) noexcept;
         PaintKit(int id, std::wstring&& name, int rarity = 0) noexcept;
 
         int id;
@@ -30,6 +30,8 @@ namespace SkinChanger
         std::string name;
         std::wstring nameUpperCase;
         std::string iconPath;
+
+        WeaponId itemId;
 
         auto operator<(const PaintKit& other) const noexcept
         {
@@ -106,7 +108,7 @@ namespace SkinChanger
         {WeaponId::Ump45, "UMP-45"},
         {WeaponId::Usp_s, "USP-S"},
         {WeaponId::Xm1014, "XM1014"}
-    });
+        });
 }
 
 
@@ -171,13 +173,15 @@ struct sticker_setting
 struct item_setting {
     void update()
     {
+        return;
         itemId = SkinChanger::weapon_names[itemIdIndex].definition_index;
         quality = SkinChanger::getQualities()[entity_quality_vector_index].index;
 
         if (itemId == WeaponId::GloveT) {
             paintKit = SkinChanger::getGloveKits()[paint_kit_vector_index].id;
             definition_override_index = (int)SkinChanger::getGloveTypes()[definition_override_vector_index].id;
-        } else {
+        }
+        else {
             paintKit = SkinChanger::getSkinKits()[paint_kit_vector_index].id;
             definition_override_index = (int)SkinChanger::getKnifeTypes()[definition_override_vector_index].id;
         }
@@ -209,7 +213,8 @@ struct item_setting {
                 const auto it = std::find_if(SkinChanger::getGloveTypes().begin(), SkinChanger::getGloveTypes().end(), [this](const auto& k) { return (int)k.id == definition_override_index; });
                 definition_override_vector_index = it != SkinChanger::getGloveTypes().end() ? std::distance(SkinChanger::getGloveTypes().begin(), it) : 0;
             }
-        } else {
+        }
+        else {
             {
                 const auto it = std::find_if(SkinChanger::getSkinKits().begin(), SkinChanger::getSkinKits().end(), [this](const auto& k) { return k.id == paintKit; });
                 paint_kit_vector_index = it != SkinChanger::getSkinKits().end() ? std::distance(SkinChanger::getSkinKits().begin(), it) : 0;
@@ -230,6 +235,7 @@ struct item_setting {
     WeaponId itemId{};
     int entity_quality_vector_index = 0;
     int quality = 0;
+    int rarity = 0;
     int paint_kit_vector_index = 0;
     int paintKit = 0;
     int definition_override_vector_index = 0;

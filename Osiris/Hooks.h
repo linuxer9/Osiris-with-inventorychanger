@@ -14,8 +14,11 @@ union SDL_Event;
 #include "Hooks/MinHook.h"
 #include "Hooks/VmtHook.h"
 #include "Hooks/VmtSwap.h"
+#include "Hooks/vfunc_hook.hpp"
 
 #include "SDK/Platform.h"
+#include "SDK/SteamAPI.h"
+
 
 struct SoundInfo;
 
@@ -56,6 +59,7 @@ public:
     HookType surface;
     HookType viewRender;
     HookType svCheats;
+    vfunc_hook gameCoordinator;
 private:
 #ifdef _WIN32
     HMODULE moduleHandle;

@@ -10,7 +10,7 @@
 #include "Hacks/SkinChanger.h"
 #include "ConfigStructs.h"
 #include "InputUtil.h"
-
+#include "Hacks/InventoryChanger.h"
 class Config {
 public:
     explicit Config(const char*) noexcept;
@@ -251,7 +251,25 @@ public:
 
         OffscreenEnemies offscreenEnemies;
     } misc;
+    struct profileChanger {
+        bool enabled{ 0 };
+        int friendly = 0;
+        int teach = 0;
+        int leader = 0;
+        int rank = 0;
+        int wins = 0;
+        int level = 0;
+        int exp = 0;
+        int ban_type = 0;
+        int ban_time = 0;
+    } profileChanger;
+    struct Inventory {
 
+        std::vector <inventoryItemShort> medals;
+        //std::vector <inventoryItem> items;
+        std::map<int, inventoryItem> items;
+        //std::vector<inventoryItem> neoitems;
+    } inventory;
     void scheduleFontLoad(const std::string& name) noexcept;
     bool loadScheduledFonts() noexcept;
     const auto& getSystemFonts() noexcept { return systemFonts; }

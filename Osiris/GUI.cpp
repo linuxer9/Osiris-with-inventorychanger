@@ -28,6 +28,9 @@
 #include "Hacks/Glow.h"
 #include "Hacks/AntiAim.h"
 #include "Hacks/Backtrack.h"
+#include "ProfileChanger/Protobuffs.h"
+#include "Hacks/InventoryChanger.h"
+#include "Interfaces.h"
 
 constexpr auto windowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize
 | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -79,6 +82,7 @@ void GUI::render() noexcept
         renderChamsWindow();
         renderStreamProofESPWindow();
         renderVisualsWindow();
+        renderInventoryChangerWindow();
         renderSkinChangerWindow();
         renderSoundWindow();
         renderStyleWindow();
@@ -155,6 +159,7 @@ void GUI::renderMenuBar() noexcept
         menuBarItem("Chams", window.chams);
         menuBarItem("ESP", window.streamProofESP);
         menuBarItem("Visuals", window.visuals);
+        menuBarItem("Inventory changer", window.inventoryChanger);
         menuBarItem("Skin changer", window.skinChanger);
         menuBarItem("Sound", window.sound);
         menuBarItem("Style", window.style);
@@ -962,7 +967,121 @@ void GUI::renderVisualsWindow(bool contentOnly) noexcept
     if (!contentOnly)
         ImGui::End();
 }
+void GUI::renderInventoryChangerWindow(bool contentOnly) noexcept
+{
+    if (!contentOnly) {
+        if (!window.inventoryChanger)
+            return;
+        ImGui::SetNextWindowSize({ 700.0f, 0.0f });
+        if (!ImGui::Begin("Inventory changer", &window.inventoryChanger, windowFlags)) {
+            ImGui::End();
+            return;
+        }
+    }
 
+    constexpr auto rarityColor = [](int rarity) {
+        constexpr auto rarityColors = std::to_array<ImU32>({
+            IM_COL32(0,     0,   0,   0),
+            IM_COL32(176, 195, 217, 255),
+            IM_COL32(94, 152, 217, 255),
+            IM_COL32(75, 105, 255, 255),
+            IM_COL32(136,  71, 255, 255),
+            IM_COL32(211,  44, 230, 255),
+            IM_COL32(235,  75,  75, 255),
+            IM_COL32(228, 174,  57, 255)
+            });
+        return rarityColors[static_cast<std::size_t>(rarity) < rarityColors.size() ? rarity : 0];
+    };
+
+    
+    static WeaponId selected_item = WeaponId::none;
+    static char selected_basename[256] = "";
+    const auto itemSchema = memory->itemSystem()->getItemSchema();
+    ImGui::BeginChildFrame(2, { 200, 200 });
+    ImGui::Text("available items");
+    for (auto& x : itemSchema->itemsSorted)
+    {
+        if (!x.value->isPaintable())
+            continue;
+        char name[64];
+        sprintf(name, "%ws", interfaces->localize->findSafe(x.value->getItemBaseName()));
+        if (ImGui::Selectable(name, (int)selected_item == (int)x.value->getWeaponId()))
+        {
+            selected_item = x.value->getWeaponId();
+            sprintf(selected_basename, "%s", x.value->getItemBaseName());
+        }
+    }
+    ImGui::EndChildFrame();
+
+    if ((int)selected_item)
+    {
+        const auto& kits = SkinChanger::getSkinKits();
+        static int selected_paintkit = 0;
+        static int selected_rarity = 0;
+
+        ImGui::PushID("Search");
+        ImGui::SetNextItemWidth(-1.0f);
+        static std::string filter;
+        ImGui::InputTextWithHint("", "Search", &filter);
+        if (ImGui::IsItemHovered() || (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)))
+            ImGui::SetKeyboardFocusHere(-1);
+        ImGui::PopID();
+        const std::wstring filterWide = Helpers::toUpper(Helpers::toWideString(filter));
+        ImGui::BeginChildFrame(11, { 0, 10 * ImGui::GetTextLineHeightWithSpacing() });
+        for (std::size_t i = 0; i < kits.size(); ++i) {
+            if (kits[i].itemId != selected_item)
+                continue;
+            if (wcsstr(kits[i].nameUpperCase.c_str(), filterWide.c_str())) {
+
+                const auto selected = selected_paintkit == kits[i].id;
+                if (ImGui::SelectableWithBullet(kits[i].name.c_str(), rarityColor(kits[i].rarity), selected)) {
+                    selected_paintkit = kits[i].id;
+                    selected_rarity = kits[i].rarity;
+                }
+            }
+        }
+        ImGui::EndChildFrame();
+
+
+        ImGui::Text("available kits");
+        if (ImGui::Button("add"))
+        {
+            inventoryItem new_item;
+            new_item.id = selected_item;
+            new_item.paintKit = selected_paintkit;
+            new_item.rarity = selected_rarity;
+            strcpy(new_item.baseName, selected_basename);
+            config->inventory.items.insert(std::pair<int, inventoryItem>(config->inventory.items.size(), new_item));
+            selected_item = WeaponId::none;
+            selected_paintkit = selected_rarity = 0;
+        }
+    }
+    ImGui::BeginChildFrame(3, { 200, 200 });
+    ImGui::Text("your inventory");
+    short inventory_iterator = 0;
+
+    for (auto& x : config->inventory.items)
+    {
+        char name[64];
+        sprintf(name, "%ws", interfaces->localize->findSafe(x.second.baseName));
+
+        ImGui::Selectable(name);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(std::to_string(x.first).c_str());
+        //    config->inventory.items.erase(config->inventory.items.begin()+ inventory_iterator);
+        inventory_iterator++;
+    }
+    ImGui::EndChildFrame();
+
+    if (ImGui::Button("update inventory"))
+    {
+        SkinChanger::scheduleHudUpdate();
+        write.SendClientHello();
+        write.SendMatchmakingClient2GCHello();
+    }
+    if (!contentOnly)
+        ImGui::End();
+}
 void GUI::renderSkinChangerWindow(bool contentOnly) noexcept
 {
     if (!contentOnly) {
@@ -1548,6 +1667,10 @@ void GUI::renderGuiStyle2() noexcept
         }
         if (ImGui::BeginTabItem("Skin changer")) {
             renderSkinChangerWindow(true);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Inventory changer")) {
+            renderInventoryChangerWindow(true);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Sound")) {

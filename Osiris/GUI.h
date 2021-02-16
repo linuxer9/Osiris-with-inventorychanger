@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <string>
+#include "Memory.h"
+#include "SDK/ItemSchema.h"
+#include "SDK/Localize.h"
 
 struct ImFont;
 
@@ -21,6 +24,7 @@ private:
     void renderChamsWindow(bool contentOnly = false) noexcept;
     void renderStreamProofESPWindow(bool contentOnly = false) noexcept;
     void renderVisualsWindow(bool contentOnly = false) noexcept;
+    void renderInventoryChangerWindow(bool contentOnly = false) noexcept;
     void renderSkinChangerWindow(bool contentOnly = false) noexcept;
     void renderSoundWindow(bool contentOnly = false) noexcept;
     void renderStyleWindow(bool contentOnly = false) noexcept;
@@ -34,6 +38,7 @@ private:
         bool chams = false;
         bool streamProofESP = false;
         bool visuals = false;
+        bool inventoryChanger = false;
         bool skinChanger = false;
         bool sound = false;
         bool style = false;
